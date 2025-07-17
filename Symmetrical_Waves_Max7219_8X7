@@ -1,0 +1,49 @@
+#include <LedControl.h>
+
+#define DIN  D7
+#define CLK  D5
+#define CS   D6
+#define SOUND_PIN A0
+
+LedControl lc = LedControl(DIN, CLK, CS, 1);
+
+const int noiseFloor = 300;
+const int peakLevel = 700;
+
+char waveform[4] = {' ', ' ', ' ', ' '}; // 4 horizontal bars (mirrored to 8 digits)
+
+void setup() {
+  lc.shutdown(0, false);
+  lc.setIntensity(0, 8);
+  lc.clearDisplay(0);
+}
+
+void loop() {
+  // Smooth sound input
+  long sum = 0;
+  const int samples = 32;
+  for (int i = 0; i < samples; i++) {
+    sum += analogRead(SOUND_PIN);
+    delayMicroseconds(300);
+  }
+
+  int avg = sum / samples;
+  avg = constrain(avg, noiseFloor, peakLevel);
+  int level = map(avg, noiseFloor, peakLevel, 0, 4); // 0–4 levels for 4 mirrored positions
+
+  // Shift waveform left
+  for (int i = 0; i < 3; i++) {
+    waveform[i] = waveform[i + 1];
+  }
+
+  // New character: '-' if above threshold, else space
+  waveform[3] = (level >= 1) ? '-' : ' ';
+
+  // Draw mirrored bars
+  for (int i = 0; i < 4; i++) {
+    lc.setChar(0, i, waveform[i], false);        // Right side (digits 0–3)
+    lc.setChar(0, 7 - i, waveform[i], false);    // Left side (digits 7–4)
+  }
+
+  delay(40); // Smooth scroll
+}
